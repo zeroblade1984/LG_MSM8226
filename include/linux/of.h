@@ -178,13 +178,13 @@ extern struct device_node *of_find_compatible_node(struct device_node *from,
 #define for_each_compatible_node(dn, type, compatible) \
 	for (dn = of_find_compatible_node(NULL, type, compatible); dn; \
 	     dn = of_find_compatible_node(dn, type, compatible))
-//2013-09-24, seungkyu.joo@lge.com, WX_MAXIM modified [Start]
+#ifdef CONFIG_MACH_LGE
 extern struct device_node *of_find_compatible_node_with_rev_lge(struct device_node *from,
 			const char *type, const char *compat);
 #define for_each_compatible_node_with_rev_lge(dn, type, compatible) \
 			for (dn = of_find_compatible_node_with_rev_lge(NULL, type, compatible); dn; \
 				 dn = of_find_compatible_node_with_rev_lge(dn, type, compatible))
-//2013-09-24, seungkyu.joo@lge.com, WX_MAXIM modified [End]
+#endif
 extern struct device_node *of_find_matching_node(struct device_node *from,
 	const struct of_device_id *matches);
 #define for_each_matching_node(dn, matches) \
@@ -196,9 +196,16 @@ extern struct device_node *of_get_parent(const struct device_node *node);
 extern struct device_node *of_get_next_parent(struct device_node *node);
 extern struct device_node *of_get_next_child(const struct device_node *node,
 					     struct device_node *prev);
+extern struct device_node *of_get_next_available_child(
+	const struct device_node *node, struct device_node *prev);
+
 #define for_each_child_of_node(parent, child) \
 	for (child = of_get_next_child(parent, NULL); child != NULL; \
 	     child = of_get_next_child(parent, child))
+
+#define for_each_available_child_of_node(parent, child) \
+	for (child = of_get_next_available_child(parent, NULL); child != NULL; \
+	     child = of_get_next_available_child(parent, child))
 
 extern struct device_node *of_find_node_with_property(
 	struct device_node *from, const char *prop_name);

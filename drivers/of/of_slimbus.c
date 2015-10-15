@@ -36,6 +36,7 @@ int of_register_slim_devices(struct slim_controller *ctrl)
 #ifdef CONFIG_MACH_LGE
 		if (!of_device_is_available(node))
 			continue;
+
 		if (!of_device_is_available_revision(node))
 			continue;
 #endif

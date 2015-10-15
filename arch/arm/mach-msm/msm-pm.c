@@ -26,6 +26,7 @@
 #include <linux/of_platform.h>
 #include <linux/cpu_pm.h>
 #include <linux/remote_spinlock.h>
+#include <linux/sched.h>
 #include <asm/uaccess.h>
 #include <asm/suspend.h>
 #include <asm/cacheflush.h>
@@ -43,9 +44,6 @@
 #include "pm-boot.h"
 #include "clock.h"
 
-#ifdef CONFIG_LGE_PM
-#include "clock.h"
-#endif
 #define CREATE_TRACE_POINTS
 #include <mach/trace_msm_low_power.h>
 
@@ -695,10 +693,6 @@ static enum msm_pm_time_stats_id msm_pm_power_collapse(bool from_idle)
 	if (cpu_online(cpu) && !msm_no_ramp_down_pc)
 		saved_acpuclk_rate = ramp_down_last_cpu(cpu);
 
-#ifdef CONFIG_LGE_PM
-	if (cpu == 0 && from_idle == 0)
-		clock_debug_print_enabled();
-#endif
 	collapsed = msm_pm_spm_power_collapse(cpu, from_idle, true);
 
 	if (cpu_online(cpu) && !msm_no_ramp_down_pc)
@@ -824,7 +818,7 @@ int msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 
 int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 {
-	int timeout = 10;
+	int timeout = 0;
 
 	if (!msm_pm_slp_sts)
 		return 0;

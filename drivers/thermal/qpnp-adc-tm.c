@@ -209,7 +209,9 @@ struct qpnp_adc_tm_chip {
 	struct work_struct		trigger_high_thr_work;
 	struct work_struct		trigger_low_thr_work;
 	struct qpnp_adc_tm_sensor	sensor[0];
+#ifdef CONFIG_MACH_LGE
 	bool                            usb_id_ext_pull_up;
+#endif
 };
 
 LIST_HEAD(qpnp_adc_tm_device_list);
@@ -1796,9 +1798,11 @@ EXPORT_SYMBOL(qpnp_adc_tm_disable_chan_meas);
 int32_t qpnp_adc_tm_usbid_configure(struct qpnp_adc_tm_chip *chip,
 				struct qpnp_adc_tm_btm_param *param)
 {
+#ifdef CONFIG_MACH_LGE
 	if (chip->usb_id_ext_pull_up)
 		param->channel = LR_MUX10_USB_ID_LV;
 	else
+#endif
 		param->channel = LR_MUX10_PU2_AMUX_USB_ID_LV;
 
 	return qpnp_adc_tm_channel_measure(chip, param);
@@ -1993,8 +1997,10 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		goto fail;
 	}
 
+#ifdef CONFIG_MACH_LGE
 	chip->usb_id_ext_pull_up = of_property_read_bool(node,
 						"usb-id-ext-pull-up");
+#endif
 
 	rc = devm_request_irq(&spmi->dev, chip->adc->adc_high_thr_irq,
 				qpnp_adc_tm_high_thr_isr,

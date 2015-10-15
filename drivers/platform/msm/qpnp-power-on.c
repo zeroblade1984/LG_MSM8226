@@ -422,6 +422,11 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	if (!cfg->key_code)
 		return 0;
 
+#ifdef CONFIG_MACH_MSM8226_E7WIFI
+	if (cfg->key_code == 114)
+		return 0;
+#endif
+
 	/* check the RT status to get the current status of the line */
 	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
 				QPNP_PON_RT_STS(pon->base), &pon_rt_sts, 1);
@@ -576,15 +581,10 @@ static void bark_work_func(struct work_struct *work)
 		dev_err(&pon->spmi->dev, "Invalid config pointer\n");
 		goto err_return;
 	}
-#if defined(CONFIG_LGE_PM_HARDRESET_DISABLE)
-	/* disble reset */
-	 rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
-								QPNP_PON_S2_CNTL_EN, 0);
-#else
+
 	/* enable reset */
 	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
 				QPNP_PON_S2_CNTL_EN, QPNP_PON_S2_CNTL_EN);
-#endif
 	if (rc) {
 		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
 		goto err_return;
@@ -748,15 +748,10 @@ qpnp_config_reset(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 		dev_err(&pon->spmi->dev, "Unable to configure S2 reset type\n");
 		return rc;
 	}
-#if defined(CONFIG_LGE_PM_HARDRESET_DISABLE)
-	/* disable S2 reset */
-	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
-				QPNP_PON_S2_CNTL_EN, 0);
-#else
+
 	/* enable S2 reset */
 	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
 				QPNP_PON_S2_CNTL_EN, QPNP_PON_S2_CNTL_EN);
-#endif
 	if (rc) {
 		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
 		return rc;
@@ -1484,7 +1479,7 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-/* LGE_CHANGE_S [jiwon.seo@lge.com] 20140102 : Change SMPL Enable Position */
+/*                                                                         */
 #if defined(CONFIG_ARCH_MSM8610) //W3,W5 model
  /* Enable SMPL */ 
    { 
@@ -1493,7 +1488,7 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
     qpnp_pon_trigger_config(PON_SMPL,1); 
    } 
 #endif
-/* LGE_CHANGE_E [jiwon.seo@lge.com] 20140102 : Change SMPL Enable Position */
+/*                                                                         */
 	return rc;
 }
 

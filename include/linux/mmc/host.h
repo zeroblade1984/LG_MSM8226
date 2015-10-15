@@ -345,9 +345,7 @@ struct mmc_host {
 #endif
 
 	int			rescan_disable;	/* disable card detection */
-#if defined (CONFIG_MMC_DAMAGED_SDCARD_CTRL)
-	int					damaged	;	/* damaged card */
-#endif
+
 	struct mmc_card		*card;		/* device attached to this host */
 
 	wait_queue_head_t	wq;
@@ -424,6 +422,7 @@ struct mmc_host {
 		unsigned int	down_threshold;
 		ktime_t		start_busy;
 		bool		enable;
+		bool		scale_down_in_low_wr_load;
 		bool		initialized;
 		bool		in_progress;
 		/* freq. transitions are not allowed in invalid state */

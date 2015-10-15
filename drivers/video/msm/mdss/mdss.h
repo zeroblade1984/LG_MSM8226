@@ -127,6 +127,7 @@ struct mdss_data_type {
 	u32 has_decimation;
 	u8 has_wfd_blk;
 	u32 has_no_lut_read;
+	atomic_t sd_client_count;
 	u8 has_wb_ad;
 
 	u32 rotator_ot_limit;
@@ -208,15 +209,7 @@ struct mdss_data_type {
 	struct mdss_prefill_data prefill_data;
 	bool ulps;
 	int iommu_ref_cnt;
-#ifdef CONFIG_LGE_VSYNC_SKIP
-	char enable_skip_vsync;
-	ulong skip_value;
-	ulong weight;
-	ulong bucket;
-	ulong skip_count;
-	int skip_ratio;
-	bool skip_first;
-#endif
+
 	u64 ab[MDSS_MAX_HW_BLK];
 	u64 ib[MDSS_MAX_HW_BLK];
 };
@@ -259,5 +252,13 @@ static inline int mdss_get_iommu_domain(u32 type)
 		return -ENODEV;
 
 	return mdss_res->iommu_map[type].domain_idx;
+}
+
+static inline int mdss_get_sd_client_cnt(void)
+{
+	if (!mdss_res)
+		return 0;
+	else
+		return atomic_read(&mdss_res->sd_client_count);
 }
 #endif /* MDSS_H */

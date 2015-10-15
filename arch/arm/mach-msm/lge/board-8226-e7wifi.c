@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include <linux/errno.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/i2c/i2c-qup.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
@@ -24,6 +25,7 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/memory.h>
+#include <linux/regulator/cpr-regulator.h>
 #include <linux/regulator/qpnp-regulator.h>
 #include <linux/msm_tsens.h>
 #include <asm/mach/map.h>
@@ -31,6 +33,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
 #include <mach/board.h>
+#include <mach/msm_bus.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
 #include <mach/restart.h>
@@ -46,18 +49,14 @@
 #include <mach/rpm-regulator-smd.h>
 #include <mach/msm_smem.h>
 #include <linux/msm_thermal.h>
-#include "../board-dt.h"
-#include "../clock.h"
-#include "../platsmp.h"
-#include "../spm.h"
-#include "../pm.h"
-#include "../modem_notifier.h"
+#include "board-dt.h"
+#include "clock.h"
+#include "platsmp.h"
+#include "spm.h"
+#include "pm.h"
+#include "modem_notifier.h"
+#include "spm-regulator.h"
 #include <mach/board_lge.h>
-#if defined(CONFIG_LCD_KCAL)
-#include <linux/module.h>
-#include "../../../../drivers/video/msm/mdss/mdss_fb.h"
-extern int update_preset_lcdc_lut(void);
-#endif
 
 static struct memtype_reserve msm8226_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -75,6 +74,11 @@ static int msm8226_paddr_to_memtype(unsigned int paddr)
 	return MEMTYPE_EBI1;
 }
 
+static struct of_dev_auxdata msm_hsic_host_adata[] = {
+	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, "msm_hsic_host", NULL),
+	{}
+};
+
 static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
 			"msm_sdcc.1", NULL),
@@ -88,6 +92,10 @@ static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
 			"msm_sdcc.2", NULL),
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF9864900, \
 			"msm_sdcc.3", NULL),
+	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, "msm_hsic_host", NULL),
+	OF_DEV_AUXDATA("qcom,hsic-smsc-hub", 0, "msm_smsc_hub",
+			msm_hsic_host_adata),
+
 	{}
 };
 
@@ -106,93 +114,11 @@ static void __init msm8226_reserve(void)
 {
 	reserve_info = &msm8226_reserve_info;
 	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8226_reserve_table);
-#ifdef CONFIG_MACH_LGE
-	of_scan_flat_dt(lge_init_dt_scan_chosen, NULL);
-#endif
 	msm_reserve();
 #if defined(CONFIG_ANDROID_RAM_CONSOLE)
 	lge_reserve();
 #endif
 }
-#if defined(CONFIG_LCD_KCAL)
-extern int g_kcal_r;
-extern int g_kcal_g;
-extern int g_kcal_b;
-
-int kcal_set_values(int kcal_r, int kcal_g, int kcal_b)
-{
-	g_kcal_r = kcal_r;
-	g_kcal_g = kcal_g;
-	g_kcal_b = kcal_b;
-	printk("kcal_set_values ::: red=[%d], green=[%d], blue=[%d]\n", g_kcal_r, g_kcal_g, g_kcal_b);
-	return 0;
-}
-
-static int kcal_get_values(int *kcal_r, int *kcal_g, int *kcal_b)
-{
-	*kcal_r = g_kcal_r;
-	*kcal_g = g_kcal_g;
-	*kcal_b = g_kcal_b;
-	printk("kcal_get_values\n");
-	return 0;
-}
-
-static int kcal_refresh_values(void)
-{
-	printk("kcal_refresh_values\n");
-	return update_preset_lcdc_lut();
-}
-
-static struct kcal_platform_data kcal_pdata = {
-	.set_values = kcal_set_values,
-	.get_values = kcal_get_values,
-	.refresh_display = kcal_refresh_values
-};
-
-static struct platform_device kcal_platrom_device = {
-	.name   = "kcal_ctrl",
-	.dev = {
-		.platform_data = &kcal_pdata,
-	}
-};
-
-void __init lge_add_lcd_kcal_devices(void)
-{
-	pr_info (" KCAL_DEBUG : %s \n", __func__);
-	platform_device_register(&kcal_platrom_device);
-}
-#endif
-
-#if defined(CONFIG_PRE_SELF_DIAGNOSIS)
-int pre_selfd_set_values(int kcal_r, int kcal_g, int kcal_b)
-{
-	return 0;
-}
-
-static int pre_selfd_get_values(int *kcal_r, int *kcal_g, int *kcal_b)
-{
-	return 0;
-}
-
-static struct pre_selfd_platform_data pre_selfd_pdata = {
-	.set_values = pre_selfd_set_values,
-	.get_values = pre_selfd_get_values,
-};
-
-
-static struct platform_device pre_selfd_platrom_device = {
-	.name   = "pre_selfd_ctrl",
-	.dev = {
-		.platform_data = &pre_selfd_pdata,
-	}
-};
-
-void __init lge_add_pre_selfd_devices(void)
-{
-	pr_info(" PRE_SELFD_DEBUG : %s\n", __func__);
-	platform_device_register(&pre_selfd_platrom_device);
-}
-#endif /* CONFIG_PRE_SELF_DIAGNOSIS */
 
 /*
  * Used to satisfy dependencies for devices that need to be
@@ -210,35 +136,18 @@ void __init msm8226_add_drivers(void)
 	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
 	qpnp_regulator_init();
+	spm_regulator_init();
 	if (of_board_is_rumi())
 		msm_clock_init(&msm8226_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8226_clock_init_data);
+	msm_bus_fabric_init_driver();
+	qup_i2c_init_driver();
+	cpr_regulator_init();
 	tsens_tm_init_driver();
 	msm_thermal_device_init();
-#if defined(CONFIG_ANDROID_RAM_CONSOLE)
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
 	lge_add_persistent_device();
-#endif
-#ifdef CONFIG_USB_G_LGE_ANDROID
-    lge_android_usb_init();
-#endif
-#ifdef CONFIG_LGE_DIAG_USB_ACCESS_LOCK
-    lge_diag_cmd_init();
-#endif
-	 #if defined(CONFIG_LCD_KCAL)
-	 lge_add_lcd_kcal_devices();
-#endif
-
-#ifdef CONFIG_LGE_QFPROM_INTERFACE
-	lge_add_qfprom_devices();
-#endif
-
-#ifdef CONFIG_LGE_ENABLE_MMC_STRENGTH_CONTROL
-    lge_add_mmc_strength_devices();
-#endif
-
-#if defined(CONFIG_PRE_SELF_DIAGNOSIS)
-	lge_add_pre_selfd_devices();
 #endif
 }
 
@@ -261,7 +170,7 @@ static const char *msm8226_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8226 (Flattened Device Tree)")
+DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8x26 / MSM 8x28 (Flattened Device Tree)")
 	.map_io = msm_map_msm8226_io,
 	.init_irq = msm_dt_init_irq,
 	.init_machine = msm8226_init,

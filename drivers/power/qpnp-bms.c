@@ -365,7 +365,7 @@ static int check_use_external_fuelgauge(struct qpnp_bms_chip *chip)
 	int ret = 0;
 	if (chip->bms_psy_registered) {
 		ret = chip->bms_psy.use_external_fuelgauge;
-		/* pr_err("[LGE] use_external_fuelgauge is %d!!!\n",chip->bms_psy.use_external_fuelgauge); */
+		/*                                                                                         */
 	} else {
 		pr_err("[LGE] There is no bms_psy!!!\n");
 	}
@@ -376,7 +376,7 @@ static int set_use_external_fuelgauge(struct qpnp_bms_chip *chip, int val)
 	int ret = -1;
 	if (chip->bms_psy_registered) {
 		chip->bms_psy.use_external_fuelgauge = val;
-		/* pr_err("[LGE] use_external_fuelgauge is %d\n!!!\n",chip->bms_psy.use_external_fuelgauge); */
+		/*                                                                                           */
 		ret = 0;
 	} else {
 		pr_err("[LGE] There is no bms_psy!!!\n");
@@ -883,8 +883,8 @@ static int get_battery_status(struct qpnp_bms_chip *chip)
 	if (chip->batt_psy) {
 		/* if battery has been registered, use the status property */
 #ifdef CONFIG_LGE_PM
-		/*  batt_psy 's POWER_SUPPLY_PROP_STATUS node is modified by LGE
-		to report FULL status at 100 SOC, even if actually phone is charging */
+		/*                                                              
+                                                                       */
 		rc = chip->batt_psy->get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_STATUS_ORIGINAL, &ret);
 #else
@@ -2243,8 +2243,9 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 #if defined (CONFIG_MACH_MSM8226_E7WIFI) || defined (CONFIG_MACH_MSM8226_E8WIFI) || \
     defined (CONFIG_MACH_MSM8926_E8LTE) || defined (CONFIG_MACH_MSM8226_E9WIFI) || \
     defined (CONFIG_MACH_MSM8226_E9WIFIN) || defined (CONFIG_MACH_MSM8926_E9LTE)
-	if (lge_boot_mode_for_touch == 2) {
-		if (battery_voltage_status_flag == false) {
+	if(lge_boot_mode_for_touch == 2){
+		if (battery_voltage_status_flag == false)
+		{
 			if ((chip->rescale_soc > 1) || (chip->vbat_uv >= 3550000)) {
 				battery_voltage_status_flag = true;
 			} else
@@ -2947,8 +2948,6 @@ done_calculating:
 	chip->first_time_calc_soc = 0;
 	chip->first_time_calc_uuc = 0;
 
-    printk("New_cal_SOC = %d, SOC = %d, batt_temp = %d, rbatt = %d, fcc_uah = %d, ocv_charge_uah = %d, uuc_uah = %d, cc_uah = %d, iavg_ua = %d\n",
-			new_calculated_soc, soc, batt_temp, params.rbatt_mohm, params.fcc_uah, params.ocv_charge_uah, params.uuc_uah, params.cc_uah, params.iavg_ua);
 #if defined (CONFIG_MACH_MSM8226_E7WIFI) || defined (CONFIG_MACH_MSM8226_E8WIFI) || \
     defined (CONFIG_MACH_MSM8926_E8LTE) || defined (CONFIG_MACH_MSM8226_E9WIFI) || \
     defined (CONFIG_MACH_MSM8226_E9WIFIN) || defined (CONFIG_MACH_MSM8926_E9LTE)
@@ -3315,9 +3314,9 @@ static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
 	chip->vbat_monitor_params.low_thr = chip->low_voltage_threshold;
 	chip->vbat_monitor_params.high_thr = chip->max_voltage_uv
 							- VBATT_ERROR_MARGIN;
-#if 0   /*LGE_CHANGES : platfrom 8x26, temporary disabled,
-	in power off charging mode. after eoc it goes to suspend. but this interrupt
-	occured, it couldn't re-enter suspend. before it fixed. this irq disabled*/
+#if 0   /*                                                
+                                                                             
+                                                                          */
 	chip->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
 #else
 	chip->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_DISABLE;
@@ -4439,7 +4438,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	else
 		batt_id = false;
 #if defined (CONFIG_MACH_MSM8926_E7LTE_ATT_US) || defined(CONFIG_LGE_PM_BATTERY_CAPACITY_4000mAh)
-	if (batt_id) {
+	if(batt_id) {
 		batt_data = &LGE_BL_T12_4000mAh_LG_Chem_data;
 		pr_err("[BATTERY PROFILE] Using default profile - LGC_4000mAh\n");
 	} else {
@@ -5004,10 +5003,10 @@ static int refresh_die_temp_monitor(struct qpnp_bms_chip *chip)
 						- chip->temperature_margin;
 #if 0
 	/*
-	 * LGE_CHANGES : platfrom 8x26, temporary disabled,
-	 * in power off charging mode. after eoc it goes to suspend. but this interrupt
-	 * occured, it couldn't re-enter suspend. before it fixed. this irq disabled
-	 */
+                                                    
+                                                                                
+                                                                             
+  */
 	chip->die_temp_monitor_params.state_request =
 												ADC_TM_HIGH_LOW_THR_ENABLE;
 #else
@@ -5054,26 +5053,26 @@ static int setup_die_temp_monitoring(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
-int get_batt_therm_touch(void)
-{
-	struct qpnp_vadc_result result;
-	int rc = 0;
+int get_batt_therm_touch(void){
+    struct qpnp_vadc_result result;
+    int rc = 0;
 
-	if (dummy_chip != NULL) {
-		rc = qpnp_vadc_read(dummy_chip->vadc_dev, LR_MUX1_BATT_THERM, &result);
+    if(dummy_chip != NULL){
+        rc = qpnp_vadc_read(dummy_chip->vadc_dev, LR_MUX1_BATT_THERM, &result);
 
-		if (rc) {
-			printk(KERN_INFO"[Touch] BAT TEMP read ERROR !!");
-			return 0xfff;
-		} else {
-			printk(KERN_INFO"[Touch][%s] Read Batt Temp = %d", __func__, (int)result.physical);
-		}
+        if(rc){
+             printk(KERN_INFO"[Touch] BAT TEMP read ERROR !!");
+            return 0xfff;
+        } else{
+           printk(KERN_INFO"[Touch][%s] Read Batt Temp = %d",__func__ ,(int)result.physical);
+        }
 
-		return (int)result.physical;
-	}
+        return (int)result.physical;
+    }
 
-	printk(KERN_INFO"[Touch] Skip Touch Battery Temp!!");
-	return 0xfff;
+    printk(KERN_INFO"[Touch] Skip Touch Battery Temp!!");
+    return 0xfff;
+
 }
 EXPORT_SYMBOL(get_batt_therm_touch);
 
@@ -5273,7 +5272,8 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 			get_prop_bms_capacity(chip), vbatt, chip->last_ocv_uv,
 			chip->r_sense_uohm, warm_reset);
 
-	dummy_chip = chip;
+
+        dummy_chip = chip;
 	return 0;
 
 unregister_dc:

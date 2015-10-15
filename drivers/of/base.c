@@ -461,6 +461,33 @@ struct device_node *of_get_next_child(const struct device_node *node,
 EXPORT_SYMBOL(of_get_next_child);
 
 /**
+ *	of_get_next_available_child - Find the next available child node
+ *	@node:	parent node
+ *	@prev:	previous child of the parent node, or NULL to get first
+ *
+ *      This function is like of_get_next_child(), except that it
+ *      automatically skips any disabled nodes (i.e. status = "disabled").
+ */
+struct device_node *of_get_next_available_child(const struct device_node *node,
+	struct device_node *prev)
+{
+	struct device_node *next;
+
+	read_lock(&devtree_lock);
+	next = prev ? prev->sibling : node->child;
+	for (; next; next = next->sibling) {
+		if (!of_device_is_available(next))
+			continue;
+		if (of_node_get(next))
+			break;
+	}
+	of_node_put(prev);
+	read_unlock(&devtree_lock);
+	return next;
+}
+EXPORT_SYMBOL(of_get_next_available_child);
+
+/**
  *	of_find_node_by_path - Find a node matching a full OF path
  *	@path:	The full path to match
  *
@@ -571,10 +598,9 @@ struct device_node *of_find_compatible_node(struct device_node *from,
 	read_unlock(&devtree_lock);
 	return np;
 }
-
 EXPORT_SYMBOL(of_find_compatible_node);
 
-//2013-09-24, seungkyu.joo@lge.com, WX_MAXIM modified [Start]
+#ifdef CONFIG_MACH_LGE
 struct device_node *of_find_compatible_node_with_rev_lge(struct device_node *from,
 	const char *type, const char *compatible)
 {
@@ -596,9 +622,8 @@ struct device_node *of_find_compatible_node_with_rev_lge(struct device_node *fro
 	read_unlock(&devtree_lock);
 	return np;
 }
-
 EXPORT_SYMBOL(of_find_compatible_node_with_rev_lge);
-//2013-09-24, seungkyu.joo@lge.com, WX_MAXIM modified [End]
+#endif
 
 
 /**

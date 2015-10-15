@@ -63,9 +63,6 @@ struct msm_proxy_ctrl_t {
 	uint32_t max_i2c_fail_thres;
 	uint32_t i2c_fail_cnt;
 	uint8_t proxy_cal;
-#if defined(CONFIG_MACH_MSM8926_JAGNM_GLOBAL_COM)
-	uint16_t sid_e2p; /* LGE_CHANGE, set the proper eeprom slave address from the sensor id, 2014-07-08, jungryoul.choi@lge.com */
-#endif
 };
 
 #define MSM_PROXY_DEBUG

@@ -4758,13 +4758,7 @@ static bool nl80211_valid_auth_type(enum nl80211_auth_type auth_type)
 static bool nl80211_valid_wpa_versions(u32 wpa_versions)
 {
 	return !(wpa_versions & ~(NL80211_WPA_VERSION_1 |
-				NL80211_WPA_VERSION_2
-/*WAPI*/
-#ifdef CONFIG_BRCM_WAPI
-				| NL80211_WAPI_VERSION_1
-#endif
-/*WAPI*/
-			));
+				  NL80211_WPA_VERSION_2));
 }
 
 static int nl80211_authenticate(struct sk_buff *skb, struct genl_info *info)

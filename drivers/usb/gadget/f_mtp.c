@@ -98,7 +98,6 @@ struct mtp_dev {
 	struct usb_ep *ep_intr;
 
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
-	bool first_mtp_binded;
 	int allocated_func;
 	/*ep for swap*/
 	struct usb_ep *ep_in1;
@@ -589,10 +588,11 @@ static struct mtp_dev *func_to_mtp(struct usb_function *f)
 {
 	struct mtp_dev *dev;
 	dev = container_of(f, struct mtp_dev, function);
-	if ((dev->function.name) && !strcmp(dev->function.name, "mtp"))
+	if ((dev->function.name) && !strcmp(dev->function.name, "mtp")) {
 		return dev;
-	else
+	} else {
 		return container_of(f, struct mtp_dev, function2);
+	}
 }
 #else
 static inline struct mtp_dev *func_to_mtp(struct usb_function *f)
@@ -620,10 +620,6 @@ static struct usb_request *mtp_request_new(struct usb_ep *ep, int buffer_size)
 static void mtp_request_free(struct usb_request *req, struct usb_ep *ep)
 {
 	if (req) {
-#ifdef CONFIG_USB_G_LGE_ANDROID
-
-		if (req->buf)
-#endif
 		kfree(req->buf);
 		usb_ep_free_request(ep, req);
 	}
@@ -814,12 +810,10 @@ retry_tx_alloc:
 	for (i = 0; i < mtp_tx_reqs; i++) {
 		req = mtp_request_new(dev->ep_in, mtp_tx_req_len);
 		if (!req) {
+			if (mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
+				goto fail;
 			while ((req = mtp_req_get(dev, &dev->tx_idle)))
 				mtp_request_free(req, dev->ep_in);
-
-			if (mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
-				goto tx_fail;
-
 			mtp_tx_req_len = MTP_BULK_BUFFER_SIZE;
 			mtp_tx_reqs = MTP_TX_REQ_MAX;
 			goto retry_tx_alloc;
@@ -841,39 +835,27 @@ retry_rx_alloc:
 	for (i = 0; i < RX_REQ_MAX; i++) {
 		req = mtp_request_new(dev->ep_out, mtp_rx_req_len);
 		if (!req) {
-			for (i--; i >= 0; i--)
-				mtp_request_free(dev->rx_req[i], dev->ep_out);
-
 			if (mtp_rx_req_len <= MTP_BULK_BUFFER_SIZE)
-				goto rx_fail;
-
+				goto fail;
+			for (; i >= 0; i--)
+				mtp_request_free(dev->rx_req[i], dev->ep_out);
 			mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
 			goto retry_rx_alloc;
 		}
 		req->complete = mtp_complete_out;
 		dev->rx_req[i] = req;
 	}
-
 	for (i = 0; i < INTR_REQ_MAX; i++) {
 		req = mtp_request_new(dev->ep_intr, INTR_BUFFER_SIZE);
-		if (!req) {
-			while ((req = mtp_req_get(dev, &dev->intr_idle)))
-				mtp_request_free(req, dev->ep_intr);
-			goto intr_fail;
-		}
+		if (!req)
+			goto fail;
 		req->complete = mtp_complete_intr;
 		mtp_req_put(dev, &dev->intr_idle, req);
 	}
 
 	return 0;
 
-intr_fail:
-	for (i = 0; i < RX_REQ_MAX; i++)
-		mtp_request_free(dev->rx_req[i], dev->ep_out);
-rx_fail:
-	while ((req = mtp_req_get(dev, &dev->tx_idle)))
-		mtp_request_free(req, dev->ep_in);
-tx_fail:
+fail:
 	printk(KERN_ERR "mtp_bind() could not allocate requests\n");
 	return -1;
 }
@@ -925,22 +907,10 @@ retry_tx_alloc:
 	for (i = 0; i < mtp_tx_reqs; i++) {
 		req = mtp_request_new(dev->ep_in, mtp_tx_req_len);
 		if (!req) {
-#ifndef CONFIG_USB_G_LGE_ANDROID
 			if (mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
 				goto fail;
-#endif
 			while ((req = mtp_req_get(dev, &dev->tx_idle)))
 				mtp_request_free(req, dev->ep_in);
-#ifdef CONFIG_USB_G_LGE_ANDROID
-			/*
-			 * If mem alloc fail in mtp_request_new function,
-			 * before goto fail we need to free request buf that already allocated.
-			 * Or if mtp_tx_req_len is larger than MTP_BULK_BUFFER_SIZE,
-			 * decrease buffer size to MTP_BULK_BUFFER_SIZE and retry allocation.
-			 */
-			if (mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
-				goto tx_fail;
-#endif
 			mtp_tx_req_len = MTP_BULK_BUFFER_SIZE;
 			mtp_tx_reqs = MTP_TX_REQ_MAX;
 			goto retry_tx_alloc;
@@ -962,25 +932,10 @@ retry_rx_alloc:
 	for (i = 0; i < RX_REQ_MAX; i++) {
 		req = mtp_request_new(dev->ep_out, mtp_rx_req_len);
 		if (!req) {
-#ifndef CONFIG_USB_G_LGE_ANDROID
 			if (mtp_rx_req_len <= MTP_BULK_BUFFER_SIZE)
 				goto fail;
 			for (; i > 0; i--)
 				mtp_request_free(dev->rx_req[i], dev->ep_out);
-#else
-			/*
-			 * If mem alloc fail in mtp_request_new function,
-			 * before goto fail we need to free request buf that already allocated.
-			 * Or if mtp_tx_req_len is larger than MTP_BULK_BUFFER_SIZE,
-			 * decrease buffer size to MTP_BULK_BUFFER_SIZE and retry allocation.
-			 * And fixed pagecompound bug_on during abnormal kfree.
-			 */
-			for (i--; i >= 0; i--)
-				mtp_request_free(dev->rx_req[i], dev->ep_out);
-
-			if (mtp_rx_req_len <= MTP_BULK_BUFFER_SIZE)
-				goto rx_fail;
-#endif
 			mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
 			goto retry_rx_alloc;
 		}
@@ -989,33 +944,15 @@ retry_rx_alloc:
 	}
 	for (i = 0; i < INTR_REQ_MAX; i++) {
 		req = mtp_request_new(dev->ep_intr, INTR_BUFFER_SIZE);
-#ifdef CONFIG_USB_G_LGE_ANDROID
-		if (!req) {
-			while ((req = mtp_req_get(dev, &dev->intr_idle)))
-				mtp_request_free(req, dev->ep_intr);
-			goto intr_fail;
-		}
-#else
 		if (!req)
 			goto fail;
-#endif
 		req->complete = mtp_complete_intr;
 		mtp_req_put(dev, &dev->intr_idle, req);
 	}
 
 	return 0;
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
-intr_fail:
-	for (i = 0; i < RX_REQ_MAX; i++)
-		mtp_request_free(dev->rx_req[i], dev->ep_out);
-rx_fail:
-	while ((req = mtp_req_get(dev, &dev->tx_idle)))
-		mtp_request_free(req, dev->ep_in);
-tx_fail:
-#else
 fail:
-#endif
 	printk(KERN_ERR "mtp_bind() could not allocate requests\n");
 	return -1;
 }
@@ -1027,17 +964,11 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	struct mtp_dev *dev = fp->private_data;
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct usb_request *req;
-	ssize_t r = count;
-	unsigned xfer;
-	int len;
+	int r = count, xfer, len;
 	int ret = 0;
 
-	DBG(cdev, "mtp_read(%zu)\n", count);
+	DBG(cdev, "mtp_read(%d)\n", count);
 
-#ifdef CONFIG_USB_G_LGE_ANDROID
-	if (!dev->ep_out)
-		return -EINVAL;
-#endif
 	len = ALIGN(count, dev->ep_out->maxpacket);
 
 	if (len > mtp_rx_req_len)
@@ -1112,7 +1043,7 @@ done:
 		dev->state = STATE_READY;
 	spin_unlock_irq(&dev->lock);
 
-	DBG(cdev, "mtp_read returning %zd\n", r);
+	DBG(cdev, "mtp_read returning %d\n", r);
 	return r;
 }
 
@@ -1122,12 +1053,11 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 	struct mtp_dev *dev = fp->private_data;
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct usb_request *req = 0;
-	ssize_t r = count;
-	unsigned xfer;
+	int r = count, xfer;
 	int sendZLP = 0;
 	int ret;
 
-	DBG(cdev, "mtp_write(%zu)\n", count);
+	DBG(cdev, "mtp_write(%d)\n", count);
 
 	spin_lock_irq(&dev->lock);
 	if (dev->state == STATE_CANCELED) {
@@ -1204,7 +1134,7 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 		dev->state = STATE_READY;
 	spin_unlock_irq(&dev->lock);
 
-	DBG(cdev, "mtp_write returning %zd\n", r);
+	DBG(cdev, "mtp_write returning %d\n", r);
 	return r;
 }
 
@@ -1378,11 +1308,7 @@ static void receive_file_work(struct work_struct *data)
 	memset(&dev->perf.wtime, 0, sizeof(dev->perf.wtime));
 	memset(&dev->perf.receive_time, 0, sizeof(dev->perf.receive_time));
 #endif
-#ifdef CONFIG_USB_G_LGE_ANDROID
-	if (dev->ep_out && !IS_ALIGNED(count, dev->ep_out->maxpacket))
-#else
 	if (!IS_ALIGNED(count, dev->ep_out->maxpacket))
-#endif
 		DBG(cdev, "%s- count(%lld) not multiple of mtu(%d)\n", __func__,
 						count, dev->ep_out->maxpacket);
 
@@ -1490,7 +1416,7 @@ static int mtp_send_event(struct mtp_dev *dev, struct mtp_event *event)
 	int ret;
 	int length = event->length;
 
-	DBG(dev->cdev, "mtp_send_event(%zu)\n", event->length);
+	DBG(dev->cdev, "mtp_send_event(%d)\n", event->length);
 
 	if (length < 0 || length > INTR_BUFFER_SIZE)
 		return -EINVAL;
@@ -1623,7 +1549,7 @@ static int mtp_open(struct inode *ip, struct file *fp)
 #if defined CONFIG_USB_G_LGE_ANDROID && defined CONFIG_LGE_PM
 	enum lge_boot_mode_type boot_mode;
 	boot_mode = lge_get_boot_mode();
-	switch(boot_mode) {
+	switch(boot_mode){
 		case LGE_BOOT_MODE_QEM_56K:
 		case LGE_BOOT_MODE_QEM_130K:
 		case LGE_BOOT_MODE_QEM_910K:
@@ -1790,8 +1716,6 @@ static int multi_mtp_bind(struct mtp_dev	*dev, struct usb_function *f, struct us
 #ifdef CONFIG_USB_G_LGE_ANDROID
 	/* for ptp & MS desc */
 	ptp_interface_desc2.bInterfaceNumber = id;
-	if (dev->first_mtp_binded == false)
-		mtp_ext_config_desc.function.bFirstInterfaceNumber = id;
 #endif
 	/* allocate endpoints */
 	ret = mtp_create_endpoints_only(dev, &mtp_fullspeed_in_desc2,
@@ -1799,11 +1723,7 @@ static int multi_mtp_bind(struct mtp_dev	*dev, struct usb_function *f, struct us
 	if (ret)
 		return ret;
 	mtp_ep_backup(dev, f->name);
-	if (dev->first_mtp_binded == false) {
-		ret = mtp_req_alloc(dev);
-		if (ret)
-			return ret;
-	}
+
 	/* support high speed hardware */
 	if (gadget_is_dualspeed(c->cdev->gadget)) {
 		mtp_highspeed_in_desc2.bEndpointAddress =
@@ -1840,8 +1760,9 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	if (dev->allocated_func)
 		return -1;
 
-	if (c->bConfigurationValue == 2)
+	if (c->bConfigurationValue == 2) {
 		return multi_mtp_bind(dev, f, c);
+	}
 #endif
 
 	dev->cdev = cdev;
@@ -1852,11 +1773,6 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	if (id < 0)
 		return id;
 	mtp_interface_desc.bInterfaceNumber = id;
-#ifdef CONFIG_USB_G_LGE_ANDROID
-	/* for ptp & MS desc */
-	ptp_interface_desc.bInterfaceNumber = id;
-	mtp_ext_config_desc.function.bFirstInterfaceNumber = id;
-#endif
 
 	/* allocate endpoints */
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
@@ -1870,7 +1786,6 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	ret = mtp_req_alloc(dev);
 	if (ret)
 		return ret;
-	dev->first_mtp_binded = true;
 #else
 	ret = mtp_create_bulk_endpoints(dev, &mtp_fullspeed_in_desc,
 			&mtp_fullspeed_out_desc, &mtp_intr_desc);
@@ -1912,10 +1827,11 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 		return;
 	}
 
-	if (dev->allocated_func == f->config->bConfigurationValue)
+	if (dev->allocated_func == f->config->bConfigurationValue) {
 		mtp_ep_swap(dev, dev->allocated_func);
-	else
+	} else {
 		return;
+	}
 #endif
 
 	while ((req = mtp_req_get(dev, &dev->tx_idle)))
@@ -1927,7 +1843,6 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	dev->state = STATE_OFFLINE;
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
 	dev->allocated_func = 0;
-	dev->first_mtp_binded = false;
 #endif
 }
 
@@ -1943,6 +1858,7 @@ static int mtp_function_set_alt(struct usb_function *f,
 	mtp_ep_swap(dev, f->config->bConfigurationValue);
 	if (f->config->bConfigurationValue == 2)
 		mtp_ep_yield_req(dev);
+	dev->allocated_func = f->config->bConfigurationValue;
 #endif
 
 	ret = config_ep_by_speed(cdev->gadget, f, dev->ep_in);
@@ -1967,9 +1883,6 @@ static int mtp_function_set_alt(struct usb_function *f,
 		usb_ep_disable(dev->ep_in);
 		return ret;
 	}
-#ifdef CONFIG_USB_G_LGE_ANDROID
-	if (!lge_get_laf_mode())
-#endif
 	ret = usb_ep_enable(dev->ep_out);
 	if (ret) {
 		ERROR(cdev, "failed to enable ep %s, result %d\n",
@@ -2000,10 +1913,11 @@ static void mtp_function_disable(struct usb_function *f)
 	struct usb_composite_dev	*cdev = dev->cdev;
 
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
-	if (dev->allocated_func == f->config->bConfigurationValue)
+	if (dev->allocated_func == f->config->bConfigurationValue) {
 		mtp_ep_swap(dev, dev->allocated_func);
-	else
+	} else {
 		return;
+	}
 #endif
 
 	DBG(cdev, "mtp_function_disable\n");
@@ -2253,7 +2167,7 @@ static void mtp_debugfs_init(struct mtp_dev *dev)
 
 	debugfs_create_file("profile", 0444, dent, dev, &debug_profile_ops);
 }
-#endif /* CONFIG_USB_G_LGE_MTP_PROFILING && CONFIG_DEBUG_FS */
+#endif /*                                                   */
 
 static int mtp_setup(void)
 {

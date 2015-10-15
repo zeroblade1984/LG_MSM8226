@@ -511,7 +511,7 @@ bool is_lge_battery_valid(void)
 	return false;
 
 
-#endif //CONFIG_LGE_PM_BATTERY_4_2VOLT
+#endif //                             
 }
 //EXPORT_SYMBOL(is_lge_battery_valid);
 
@@ -599,9 +599,7 @@ static int __init lge_uart_mode(char *uart_mode)
 }
 __setup("uart_console=", lge_uart_mode);
 
-#ifdef CONFIG_LGE_PM_CHARGING_CHARGERLOGO
 int lge_boot_mode_for_touch = (int)LGE_BOOT_MODE_NORMAL;
-#endif
 
 static enum lge_boot_mode_type lge_boot_mode = LGE_BOOT_MODE_NORMAL;
 int __init lge_boot_mode_init(char *s)
@@ -627,9 +625,7 @@ int __init lge_boot_mode_init(char *s)
 	else
 		lge_boot_mode = LGE_BOOT_MODE_NORMAL;
 
-#ifdef CONFIG_LGE_PM_CHARGING_CHARGERLOGO
         lge_boot_mode_for_touch = (int)lge_boot_mode;
-#endif
 
 	printk("ANDROID BOOT MODE : %d %s\n", lge_boot_mode, s);
 	return 1;
@@ -830,7 +826,7 @@ void __init lge_android_usb_init(void)
 {
     platform_device_register(&lge_android_usb_device);
 }
-#endif /* CONFIG_USB_G_LGE_ANDROID */
+#endif /*                          */
 
 #ifdef CONFIG_LGE_CRASH_FOOTPRINT
 static unsigned long int lge_bootreason = 0;
@@ -896,7 +892,7 @@ void __init lge_add_qsdl_device(void)
 {
 	platform_device_register(&lge_qsdl_device);
 }
-#endif /* CONFIG_LGE_QSDL_SUPPORT */
+#endif /*                         */
 
 #if defined(CONFIG_LGE_KSWITCH)
  static int atoi(const char *name)

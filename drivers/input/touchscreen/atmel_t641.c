@@ -29,7 +29,6 @@
 #include <linux/time.h>
 #include <linux/wakelock.h>
 #include <linux/mutex.h>
-#include <linux/mfd/pm8xxx/cradle.h>
 #include <linux/uaccess.h>
 #include <linux/time.h>
 #include <linux/file.h>
@@ -57,6 +56,8 @@ static bool touch_irq_wake_mask = 0;
 static unsigned char touched_finger_count = 0;
 static unsigned char patchevent_mask = 0;
 static unsigned char power_block_mask = 0;
+
+static int lpwg_status = 0;
 
 struct lge_touch_attribute {
 	struct attribute	attr;
@@ -1054,7 +1055,7 @@ static int mxt_read_all_diagnostic_data(struct mxt_data *data, u8 dbg_mode, char
 		goto out;
 	}
 
-	//LGE
+	//   
 	mxt_prepare_debug_data(data);
 
 	end_page = (data->channel_size.size_x * data->channel_size.size_y) / NODE_PER_PAGE + 1;
@@ -1149,7 +1150,7 @@ static int mxt_read_one_page_diagnostic_data(struct mxt_data *data, u8 dbg_mode)
 		goto out;
 	}
 
-	//LGE
+	//   
 	mxt_prepare_debug_data_temp(data);
 
 	/* read the dbg data */
@@ -1438,7 +1439,7 @@ int mxt_get_self_delta_chk(struct mxt_data *data)
 		}
 
 		for (i = 0; i < NODE_PER_PAGE; i++) {
-			curr_delta =( ((u16)ret_buf[i*2+1] << 8) + (u16)ret_buf[i*2] ); // 음수 맞지
+			curr_delta =( ((u16)ret_buf[i*2+1] << 8) + (u16)ret_buf[i*2] ); // \C0\BD\BC\F6 \B8\C2\C1\F6
 
 			//TOUCH_INFO_MSG("%6hd", curr_delta);
 
@@ -1576,7 +1577,7 @@ int mxt_get_self_delta_chk(struct mxt_data *data)
 	}
 	else if( (global_mxt_data->self_delta_chk[13] < proc_anti_tot_cnt) && (global_mxt_data->ts_data.total_num ==0) )
 	{
-		//현재 Touch Finger 가 있는지 확인
+		//\C7\F6\C0\E7 Touch Finger \B0\A1 \C0獵\C2\C1\F6 확\C0\CE
 		TOUCH_INFO_MSG("Case 4 Fail Proc Anti Tot Count ( %d ), Set Count ( %d ) \n", proc_anti_tot_cnt, global_mxt_data->self_delta_chk[13]);
 		return 1; // recal
 	}
@@ -2277,6 +2278,9 @@ static void mxt_proc_t93_messages(struct mxt_data *data, u8 *message)
 	} else if ( msg & 0x02 ) {
 		TOUCH_INFO_MSG("T93 Knock ON!!\n");
 		send_uevent(knockon_event);
+		input_report_key(data->input_dev, KEY_POWER, BUTTON_PRESSED);
+		input_report_key(data->input_dev, KEY_POWER, BUTTON_RELEASED);
+		input_sync(data->input_dev);
 	}
 }
 #endif
@@ -5375,6 +5379,7 @@ static ssize_t store_lpwg_notify(struct mxt_data *data, const char *buf, size_t 
 	switch(type){
 	case 1 :
 		atmel_ts_lpwg(data->client, LPWG_ENABLE, value[0], NULL);
+		lpwg_status = (value[0]) ? 1 : 0;
 		break;
 	case 2 :
 		atmel_ts_lpwg(data->client, LPWG_LCD_X, value[0], NULL);
@@ -5402,6 +5407,11 @@ static ssize_t store_lpwg_notify(struct mxt_data *data, const char *buf, size_t 
 		break;
 		}
 	return count;
+}
+
+static ssize_t show_lpwg_notify(struct mxt_data *data, char *buf)
+{
+	return sprintf(buf, "%d\n", lpwg_status);
 }
 #endif
 
@@ -5482,7 +5492,7 @@ static LGE_TOUCH_ATTR(patch_debug_enable, S_IWUSR | S_IRUSR, mxt_patch_debug_ena
 static LGE_TOUCH_ATTR(knock_on_type, S_IRUGO, mxt_get_knockon_type, NULL);
 #if defined(CONFIG_TOUCHSCREEN_LGE_LPWG)
 static LGE_TOUCH_ATTR(lpwg_data, S_IRUGO | S_IWUSR, show_lpwg_data, store_lpwg_data);
-static LGE_TOUCH_ATTR(lpwg_notify, S_IRUGO | S_IWUSR, NULL, store_lpwg_notify);
+static LGE_TOUCH_ATTR(lpwg_notify, S_IRUGO | S_IWUSR, show_lpwg_notify, store_lpwg_notify);
 #else
 static LGE_TOUCH_ATTR(touch_gesture,S_IRUGO | S_IWUSR, NULL, mxt_knock_on_store);
 #endif
@@ -6072,6 +6082,9 @@ int mxt_initialize_t100_input_device(struct mxt_data *data)
 //	__set_bit(EV_SYN, input_dev->evbit);
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
+
+	__set_bit(EV_KEY, input_dev->evbit);
+	__set_bit(KEY_POWER, input_dev->keybit);
 
 	/* For single touch */
 /*
