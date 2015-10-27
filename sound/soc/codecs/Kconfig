@@ -486,3 +486,10 @@ config LGE_MBHC_TWIST_HEADSET
 config LGE_AUDIO_AUX
 	bool "4pole aux feature"
 	default n
+
+# Kairi
+config WCD9306_CODEC_CONTROL
+        bool "Taiko/Tapan Codec Control"
+	default y if SND_SOC_WCD9306=y
+	help
+	 Simple Taiko/Tapan/Tomtom codec control interface otherwise known as TAMOD.
